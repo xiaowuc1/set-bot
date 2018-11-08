@@ -10,9 +10,9 @@ from rtmbot.core import Plugin
 import Set
 import BoardGenerator
 
-
+# TODO: export these
 BOT_NAME = 'set-bot'
-CHANNEL = '#set-bot-debug'
+CHANNEL = '#set'
 
 
 Model = collections.namedtuple(
@@ -22,7 +22,6 @@ Model = collections.namedtuple(
         'is_playing',
         'board',
         'deck',
-        'can_call_sets',
     ]
 )
 
@@ -86,7 +85,7 @@ def update_by_self_message(message, model):
     # chat.
     if message['subtype'] == 'file_share':
         return (
-            Model._replace(model, can_call_sets=True), []
+            Model._replace(model), []
         )
     else:
         return (model, [])
@@ -99,7 +98,7 @@ def update_while_playing(message, model):
             [chat_message("We're already in the middle of a game!")]
         )
 
-    elif is_set_call_message(message) and model.can_call_sets:
+    elif is_set_call_message(message):
         message_text = message['text']
         cards_called_in = Set.letter_codes_to_cards(model.board, message_text)
 
@@ -111,7 +110,7 @@ def update_while_playing(message, model):
                     Model._replace(
                         model,
                         board=board, deck=[],
-                        is_playing=False, can_call_sets=False,
+                        is_playing=False,
                     ),
                     [
                         chat_message("SET called by <@{}>!".format(
@@ -135,33 +134,19 @@ def update_while_playing(message, model):
                     board = Set.coalesce_empty_spaces(board)
                     deck = []
 
-                if Set.is_game_over(board, deck):
-                    return (
-                        Model._replace(
-                            model,
-                            board=board, deck=[],
-                            is_playing=False, can_call_sets=False,
-                        ),
-                        [
-                            chat_message("SET called by <@{}>!".format(
-                                message['user']
-                            )), chat_message(
-                                "Game over! Type `set-bot start` to start a new game."
-                            )
-                        ]
-                    )
-                else:
-                    return (
-                        Model._replace(
-                            model,
-                            board=board, deck=deck, can_call_sets=False,
-                        ),
-                        [
-                            chat_message(
-                                'SET called by <@{}>!'.format(message['user'])),
-                            set_board_image_upload(board),
-                        ]
-                    )
+                assert not Set.is_game_over(board, deck)
+
+                return (
+                    Model._replace(
+                        model,
+                        board=board, deck=deck,
+                    ),
+                    [
+                        chat_message(
+                            'SET called by <@{}>!'.format(message['user'])),
+                        set_board_image_upload(board),
+                    ]
+                )
 
         else:
             return (
@@ -171,7 +156,7 @@ def update_while_playing(message, model):
                 )]
             )
 
-    elif is_no_sets_call_message(message) and model.can_call_sets:
+    elif is_no_sets_call_message(message):
         a_set = Set.find_set(model.board)
 
         if a_set:
@@ -186,7 +171,7 @@ def update_while_playing(message, model):
                     Model._replace(
                         model,
                         board=board, deck=[],
-                        is_playing=False, can_call_sets=False,
+                        is_playing=False,
                     ),
                     [
                         chat_message(
@@ -281,7 +266,6 @@ class SetBotPlugin(Plugin):
             is_playing=False,
             board=[],
             deck=[],
-            can_call_sets=False,
         )
 
 

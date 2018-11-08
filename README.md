@@ -17,9 +17,9 @@ this:
 DEBUG: True
 SLACK_TOKEN: "------- your slack api token here --------"
 ACTIVE_PLUGINS:
-    - plugins.SetBotPlugin
+    - plugin.SetBotPlugin
 ```
 
-There are some variables in `plugins/SetBotPlugin.py` that need to be hardcoded
+There are some variables in `plugin/SetBotPlugin.py` that need to be hardcoded
 to be correct for your use case, like the name of the bot user and the name of
 the channel to run in. These could be environment variables, but I'm lazy.
