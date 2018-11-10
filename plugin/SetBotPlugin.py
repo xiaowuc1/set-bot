@@ -22,6 +22,7 @@ Model = collections.namedtuple(
         'is_playing',
         'board',
         'deck',
+        'user_to_set_count'
     ]
 )
 
@@ -76,6 +77,22 @@ def is_self_message(message, model):
     return message['type'] == 'message' and message['user'] == model.bot_user_id
 
 
+def generate_statistics(user_to_set_count):
+    return "\n".join(
+        [
+            "<@{}> got {} {}!".format(
+                user, set_count, "sets" if set_count != 1 else "set"
+            )
+            for user, set_count in sorted(
+                [
+                    (_user, _set_count)
+                    for _user, _set_count in user_to_set_count.iteritems()
+                ],
+                key=lambda x: x[1]
+            )[::-1]
+        ]
+    )
+
 def update_by_self_message(message, model):
     # Ignore messages that come from the bot itself, so that we don't get in
     # infinite loops with "no set" triggering itself.
@@ -105,48 +122,32 @@ def update_while_playing(message, model):
         if Set.is_set(*cards_called_in):
             board = Set.remove_cards_from_board(model.board, cards_called_in)
 
-            if Set.is_game_over(board, model.deck):
-                return (
-                    Model._replace(
-                        model,
-                        board=board, deck=[],
-                        is_playing=False,
-                    ),
-                    [
-                        chat_message("SET called by <@{}>!".format(
-                            message['user']
-                        )), chat_message(
-                            "Game over! Type `set-bot start` to start a new game."
-                        )
-                    ]
-                )
+            model.user_to_set_count[message['user']] += 1
 
+            if len(board) > 12:
+                board = Set.coalesce_empty_spaces(board)
+                deck = model.deck
+            elif len(model.deck) > 0:
+                board, deck = Set.deal_cards_into_empty_spaces(
+                    board, model.deck)
             else:
-                # Game not over: there are still cards in the deck or sets
-                # remaining on the board.
-                if len(board) > 12:
-                    board = Set.coalesce_empty_spaces(board)
-                    deck = model.deck
-                elif len(model.deck) > 0:
-                    board, deck = Set.deal_cards_into_empty_spaces(
-                        board, model.deck)
-                else:
-                    board = Set.coalesce_empty_spaces(board)
-                    deck = []
+                board = Set.coalesce_empty_spaces(board)
+                deck = []
 
-                assert not Set.is_game_over(board, deck)
-
-                return (
-                    Model._replace(
-                        model,
-                        board=board, deck=deck,
+            return (
+                Model._replace(
+                    model,
+                    board=board, deck=deck,
+                ),
+                [
+                    chat_message(
+                        'SET called by <@{}>!'.format(message['user'])),
+                    chat_message(
+                        generate_statistics(model.user_to_set_count)
                     ),
-                    [
-                        chat_message(
-                            'SET called by <@{}>!'.format(message['user'])),
-                        set_board_image_upload(board),
-                    ]
-                )
+                    set_board_image_upload(board),
+                ]
+            )
 
         else:
             return (
@@ -175,6 +176,9 @@ def update_while_playing(message, model):
                     ),
                     [
                         chat_message(
+                            generate_statistics(model.user_to_set_count)
+                        ),
+                        chat_message(
                             "Game over! Type `set-bot start` to start a new game."
                         )
                     ]
@@ -198,6 +202,7 @@ def start_game_update(message, model):
         is_playing=True,
         board=board,
         deck=deck,
+        user_to_set_count=collections.defaultdict(int)
     )
     return (
         new_model,
@@ -266,6 +271,7 @@ class SetBotPlugin(Plugin):
             is_playing=False,
             board=[],
             deck=[],
+            user_to_set_count=collections.defaultdict(int),
         )
 
 
@@ -275,8 +281,13 @@ class SetBotPlugin(Plugin):
         print('transitioning to', new_state)
         print('executing commands', commands)
         for command in commands:
+            print('executing command {}'.format(command))
             if command[0] == 'chat.postMessage':
                 command[1]['channel'] = CHANNEL
                 command[1]['username'] = BOT_NAME
-            self.slack_client.api_call(command[0], **command[1])
+            try:
+                print(self.slack_client.api_call(command[0], **command[1]))
+            except Exception as e:
+                print("EXCEPTION FOUND: {}".format(e))
+        print('updating state')
         self.model = new_state
