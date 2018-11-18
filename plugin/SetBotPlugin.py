@@ -48,14 +48,7 @@ def set_board_image_upload(board):
 
 
 def is_start_game_message(user_id, message):
-    return (
-        message['type'] == 'message' and
-        (
-            'set-bot' in message['text'].lower() or
-            user_id in message['text']
-        ) and
-        'start' in message['text'].lower()
-    )
+    return message['type'] == 'message' and 'start' in message['text'].lower()
 
 def is_set_call_message(message):
     return (
@@ -130,6 +123,25 @@ def update_while_playing(message, model):
             elif len(model.deck) > 0:
                 board, deck = Set.deal_cards_into_empty_spaces(
                     board, model.deck)
+            elif len(board) == 0:
+                return (
+                    Model._replace(
+                        model,
+                        board=board, deck=[],
+                        is_playing=False,
+                    ),
+                    [
+                        chat_message(
+                            'SET called by <@{}>!'.format(message['user'])
+                        ),
+                        chat_message(
+                            generate_statistics(model.user_to_set_count)
+                        ),
+                        chat_message(
+                            "Game over! Type `set-bot start` to start a new game."
+                        )
+                    ]
+                )
             else:
                 board = Set.coalesce_empty_spaces(board)
                 deck = []
@@ -289,5 +301,4 @@ class SetBotPlugin(Plugin):
                 print(self.slack_client.api_call(command[0], **command[1]))
             except Exception as e:
                 print("EXCEPTION FOUND: {}".format(e))
-        print('updating state')
         self.model = new_state
