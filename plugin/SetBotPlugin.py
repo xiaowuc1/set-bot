@@ -14,6 +14,7 @@ import BoardGenerator
 BOT_NAME = 'set-bot'
 CHANNEL = '#set'
 
+GAME_OVER_MESSAGE = "Game over! Type `set-bot start` to start a new game."
 
 Model = collections.namedtuple(
     'SetBotModel',
@@ -137,9 +138,7 @@ def update_while_playing(message, model):
                         chat_message(
                             generate_statistics(model.user_to_set_count)
                         ),
-                        chat_message(
-                            "Game over! Type `set-bot start` to start a new game."
-                        )
+                        chat_message(GAME_OVER_MESSAGE)
                     ]
                 )
             else:
@@ -190,9 +189,7 @@ def update_while_playing(message, model):
                         chat_message(
                             generate_statistics(model.user_to_set_count)
                         ),
-                        chat_message(
-                            "Game over! Type `set-bot start` to start a new game."
-                        )
+                        chat_message(GAME_OVER_MESSAGE)
                     ]
                 )
             else:
