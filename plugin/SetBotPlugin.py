@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 
 import collections
 import re
+import signal
 import sys
 
 from rtmbot.core import Plugin
@@ -271,6 +272,12 @@ class SetBotPlugin(Plugin):
         if not my_user_id:
             print('Could not fetch own user id')
             sys.exit(1)
+
+        def interrupt_handler(signum, frame):
+            self.slack_client.api_call("chat.postMessage", text='SET going down, thanks for playing!', channel=CHANNEL, username='set-bot')
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, interrupt_handler)
 
         print('Set bot starting up. User ID is', my_user_id)
         self.slack_client.api_call("chat.postMessage", text='Hello, {}! Type `set-bot start` to begin a game.'.format(CHANNEL), channel=CHANNEL, username='set-bot')
